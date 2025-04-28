@@ -1,0 +1,40 @@
+name: Automerge Dependabot
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Check if it's a patch update
+        id: check
+        run: |
+          VERSION_FROM=$(echo "${{ github.event.pull_request.title }}" | grep -oP '\d+\.\d+\.\d+' | head -n1)
+          VERSION_TO=$(echo "${{ github.event.pull_request.title }}" | grep -oP '\d+\.\d+\.\d+' | tail -n1)
+
+          MAJOR_FROM=$(echo $VERSION_FROM | cut -d. -f1)
+          MINOR_FROM=$(echo $VERSION_FROM | cut -d. -f2)
+          PATCH_FROM=$(echo $VERSION_FROM | cut -d. -f3)
+
+          MAJOR_TO=$(echo $VERSION_TO | cut -d. -f1)
+          MINOR_TO=$(echo $VERSION_TO | cut -d. -f2)
+          PATCH_TO=$(echo $VERSION_TO | cut -d. -f3)
+
+          if [ "$MAJOR_FROM" = "$MAJOR_TO" ] && [ "$MINOR_FROM" = "$MINOR_TO" ]; then
+            echo "patch_update=true" >> $GITHUB_OUTPUT
+          else
+            echo "patch_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Auto-merge PR
+        if: steps.check.outputs.patch_update == 'true'
+        run: |
+          gh pr merge "$GITHUB_HEAD_REF" --merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
