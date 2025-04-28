@@ -1,0 +1,13 @@
+{
+  "name": "markdown-documentation-generator",
+  "version": "0.0.0",
+  "description": "Converts Markdown documents to HTML ready to use.",
+  "main": "src/index.js",
+  "bin": {
+    "markdown-documentation-generator": "src/index.js"
+  },
+  "homepage": "https://github.com/Tygo-van-den-Hurk/markdown-documentation-generator/",
+  "dependencies": {
+    "markdown-it": "^14.1.0"
+  }
+}

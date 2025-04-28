@@ -10,9 +10,7 @@
   },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "jnoortheen.nix-ide"
-      ],
+      "extensions": ["jnoortheen.nix-ide"],
       "settings": {
         "nix.formatterPath": "nixfmt-rfc-style",
         "nix.enableLanguageServer": true,

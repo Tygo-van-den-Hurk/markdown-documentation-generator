@@ -1,51 +1,91 @@
 {
-  description = "The flake used for building, checking and developing this school project.";
+  description = "The flake used for building, checking and developing this project.";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/24.11";
     flake-utils.url = "github:numtide/flake-utils";
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... } @ inputs: flake-utils.lib.eachDefaultSystem ( system:
-    let
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      treefmt-nix,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
 
-      pkgs = import nixpkgs { inherit system; };
-      
-    in rec {
+        pkgs = import nixpkgs { inherit system; };
 
-      formater = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
+        inherit (nixpkgs) lib;
 
-      checks.default = self.packages.${system}.default;
+        treefmtEval = treefmt-nix.lib.evalModule pkgs ./.config/treefmt.nix;
 
-      devShells.default = pkgs.mkShell {
-        buildInputs = with pkgs; [ 
-          act # Run GitHub Actions locally.
-        ];
-      };
+      in
+      rec {
 
-      packages.default = pkgs.stdenv.mkDerivation rec {
-        name = "default";
-        src = ./.;
-        buildInputs = with pkgs; [ ];
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Nix Build ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-        buildPhase = ''
-          runHook preBuild
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            nodejs_23
+            act # Run GitHub Actions locally.
+          ];
+        };
 
-          # ...
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Nix Build ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-          runHook postBuild
-        '';
+        packages.default =
+          let
 
-        installPhase = ''
-          runHook preInstall
-          
-          mkdir --parents $out
+            packageJson = builtins.fromJSON (builtins.readFile ./package.json);
 
-          # ...
-            
-          runHook postInstall
-        '';
-      };
-    }
-  );
+          in
+          pkgs.buildNpmPackage {
+            pname = packageJson.name;
+            inherit (packageJson) version;
+
+            forceGitDeps = true;
+
+            src = ./.;
+
+            npmDepsHash = "sha256-dowdrnkhoA1lbnBXxgiqfM7N1F2KzVqNvc4Jx/zyonI=";
+            nodejs = pkgs.nodejs_23;
+
+            makeCacheWritable = true;
+            dontNpmBuild = true;
+            npmPackFlags = [ "--ignore-scripts" ];
+
+            doInstallCheck = true;
+
+            passthru.updateScript = pkgs.nix-update-script { };
+
+            meta = {
+              inherit (packageJson) description homepage;
+              mainProgram = "markdown-documentation-generator";
+            };
+          };
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Nix Flake Check ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+        checks = packages // {
+          formatting = treefmtEval.config.build.check self;
+        };
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Nix Fmt ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+        formatter = treefmtEval.config.build.wrapper;
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+      }
+    );
 }
