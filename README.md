@@ -1,4 +1,4 @@
-> This repository will be used as a template for future school projects.
+> Converts README.md files into HTML retaining the same structure and injecting CSS to make websites.
 
 <br>
 <div align="center">
